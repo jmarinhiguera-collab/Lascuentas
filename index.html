@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora Bizum</title>
+</head>
+<body>
+<h2>Calculadora Bizum</h2>
+
+<div id="people"></div>
+<button onclick="add()">➕ Añadir persona</button>
+<button onclick="calc()">Calcular</button>
+
+<pre id="out"></pre>
+
+<script>
+function add(n='',a=''){
+  let d=document.createElement('div');
+  d.innerHTML=`<input placeholder="Nombre" value="${n}"> 
+               <input placeholder="€" value="${a}">`;
+  document.getElementById('people').appendChild(d);
+}
+for(let i=0;i<4;i++)add();
+
+function calc(){
+  let rows=[...document.querySelectorAll('#people div')];
+  let p=[];
+  rows.forEach(r=>{
+    let n=r.children[0].value;
+    let a=parseFloat(r.children[1].value)||0;
+    if(n)p.push({n,a});
+  });
+  let t=p.reduce((s,x)=>s+x.a,0);
+  let per=t/p.length;
+  let o=`Total: ${t.toFixed(2)}€\nPor persona: ${per.toFixed(2)}€\n\nBizums:\n`;
+  let c=p.filter(x=>x.a>per), d=p.filter(x=>x.a<per);
+  c.forEach(x=>x.a-=per); d.forEach(x=>x.a=per-x.a);
+  c.forEach(x=>{
+    d.forEach(y=>{
+      let m=Math.min(x.a,y.a);
+      if(m>0.01){
+        o+=`${y.n} → ${x.n}: ${m.toFixed(2)}€\n`;
+        x.a-=m; y.a-=m;
+      }
+    });
+  });
+  document.getElementById('out').textContent=o;
+}
+</script>
+</body>
+</html>
