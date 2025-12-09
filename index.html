@@ -1,52 +1,322 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Calculadora Bizum</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cuentas Claras Pro 📊</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --bg: #F3F4F6;
+            --card: #FFFFFF;
+            --text: #1F2937;
+            --success: #10B981;
+            --danger: #EF4444;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background-color: var(--bg); 
+            margin: 0; padding: 20px; 
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container { max-width: 500px; margin: 0 auto; padding-bottom: 50px; }
+
+        h1 { text-align: center; font-weight: 800; margin-bottom: 5px; color: #111; letter-spacing: -0.5px;}
+        p.subtitle { text-align: center; color: #6B7280; margin-top: 0; font-size: 0.95rem; margin-bottom: 25px;}
+
+        /* Tarjetas con efecto moderno */
+        .card { 
+            background: var(--card); 
+            padding: 20px; 
+            border-radius: 20px; 
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.01); 
+            margin-bottom: 20px; 
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+
+        /* Inputs bonitos */
+        .input-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        input { 
+            padding: 14px; 
+            border-radius: 12px; 
+            border: 2px solid #E5E7EB; 
+            font-size: 16px; 
+            background: #F9FAFB;
+            outline: none;
+            transition: 0.2s;
+        }
+        input:focus { border-color: var(--primary); background: #fff; }
+        #name { flex: 2; }
+        #amount { flex: 1; }
+
+        /* Botones */
+        button { 
+            width: 100%; padding: 14px; border-radius: 14px; border: none; 
+            font-size: 16px; font-weight: 700; cursor: pointer; transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.98); }
+        .btn-add { background-color: var(--primary); color: white; box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.39); }
+        .btn-calc { 
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%); 
+            color: white; font-size: 18px; 
+            box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.39);
+        }
+        
+        /* Lista de gastos */
+        ul { list-style: none; padding: 0; margin: 0; }
+        li { 
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 0; border-bottom: 1px solid #F3F4F6; font-weight: 500;
+        }
+        li:last-child { border-bottom: none; }
+        .delete-btn { color: #9CA3AF; cursor: pointer; font-size: 18px; margin-left: 10px; }
+        .delete-btn:hover { color: var(--danger); }
+
+        /* Gráfico */
+        .chart-container { position: relative; height: 250px; width: 100%; margin-top: 10px; }
+
+        /* Resultados */
+        #results-area { display: none; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .bizum-card {
+            display: flex; align-items: center; justify-content: space-between;
+            background: #F8FAFC; border-left: 5px solid var(--success);
+            padding: 15px; border-radius: 12px; margin-bottom: 10px;
+        }
+        .bizum-text { font-size: 1.05rem; }
+        .bizum-amount { font-weight: 800; font-size: 1.2rem; color: var(--text); }
+        
+        .badge { 
+            padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; text-transform: uppercase;
+        }
+        .b-pay { background: #FEE2E2; color: #B91C1C; }
+        .b-receive { background: #D1FAE5; color: #047857; }
+
+        .share-btn {
+            background: transparent; color: var(--primary); border: 1px dashed var(--primary); margin-bottom: 20px;
+        }
+    </style>
 </head>
 <body>
-<h2>Calculadora Bizum</h2>
 
-<div id="people"></div>
-<button onclick="add()">➕ Añadir persona</button>
-<button onclick="calc()">Calcular</button>
+<div class="container">
+    <h1>💸 Cuentas Claras</h1>
+    <p class="subtitle">Añade gastos, mira el gráfico y reparte.</p>
 
-<pre id="out"></pre>
+    <button class="share-btn" onclick="shareLink()">🔗 Compartir enlace con el grupo</button>
+
+    <div class="card">
+        <div class="input-group">
+            <input type="text" id="name" placeholder="Nombre (ej. Sara)" autocomplete="off">
+            <input type="number" id="amount" placeholder="€" inputmode="decimal">
+        </div>
+        <button class="btn-add" onclick="addExpense()">👇 Añadir Gasto</button>
+        
+        <div style="margin-top: 20px;">
+            <ul id="expense-list"></ul>
+        </div>
+    </div>
+
+    <div class="card" id="chart-card" style="display:none;">
+        <h3 style="margin:0 0 15px 0; text-align:center; font-size:1rem; color:#666;">Porcentaje de gasto</h3>
+        <div class="chart-container">
+            <canvas id="expenseChart"></canvas>
+        </div>
+    </div>
+
+    <button class="btn-calc" onclick="calculateOptimized()">⚡ CALCULAR QUIÉN PAGA</button>
+
+    <div id="results-area" style="margin-top: 30px;">
+        <h2 style="text-align:center;">📊 Resultado Final</h2>
+        <p style="text-align:center; color:#666; margin-bottom:20px;" id="summary-text"></p>
+        
+        <div id="bizum-list"></div>
+        
+        <button style="background:#E5E7EB; color:#374151; margin-top:20px;" onclick="location.reload()">🔄 Reiniciar todo</button>
+    </div>
+</div>
 
 <script>
-function add(n='',a=''){
-  let d=document.createElement('div');
-  d.innerHTML=`<input placeholder="Nombre" value="${n}"> 
-               <input placeholder="€" value="${a}">`;
-  document.getElementById('people').appendChild(d);
-}
-for(let i=0;i<4;i++)add();
+    let expenses = [];
+    let myChart = null; // Variable para guardar el gráfico
+    
+    // Paleta de colores modernos para el gráfico
+    const chartColors = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#3B82F6'];
 
-function calc(){
-  let rows=[...document.querySelectorAll('#people div')];
-  let p=[];
-  rows.forEach(r=>{
-    let n=r.children[0].value;
-    let a=parseFloat(r.children[1].value)||0;
-    if(n)p.push({n,a});
-  });
-  let t=p.reduce((s,x)=>s+x.a,0);
-  let per=t/p.length;
-  let o=`Total: ${t.toFixed(2)}€\nPor persona: ${per.toFixed(2)}€\n\nBizums:\n`;
-  let c=p.filter(x=>x.a>per), d=p.filter(x=>x.a<per);
-  c.forEach(x=>x.a-=per); d.forEach(x=>x.a=per-x.a);
-  c.forEach(x=>{
-    d.forEach(y=>{
-      let m=Math.min(x.a,y.a);
-      if(m>0.01){
-        o+=`${y.n} → ${x.n}: ${m.toFixed(2)}€\n`;
-        x.a-=m; y.a-=m;
-      }
-    });
-  });
-  document.getElementById('out').textContent=o;
-}
+    function addExpense() {
+        const nameIn = document.getElementById('name');
+        const amountIn = document.getElementById('amount');
+        
+        const name = nameIn.value.trim();
+        const amount = parseFloat(amountIn.value);
+
+        if (!name || isNaN(amount)) {
+            alert("⚠️ Por favor, escribe un nombre y una cantidad.");
+            return;
+        }
+
+        // Normalizar nombre (primera mayúscula)
+        const cleanName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+
+        expenses.push({ name: cleanName, amount });
+        
+        updateUI();
+
+        // Limpiar inputs
+        amountIn.value = '';
+        nameIn.value = '';
+        nameIn.focus();
+    }
+
+    function removeExpense(index) {
+        expenses.splice(index, 1);
+        updateUI();
+    }
+
+    function updateUI() {
+        // 1. Actualizar Lista
+        const list = document.getElementById('expense-list');
+        list.innerHTML = '';
+        expenses.forEach((e, index) => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span>${e.name}</span> 
+                <div style="display:flex; align-items:center;">
+                    <strong style="margin-right:10px;">${e.amount}€</strong>
+                    <span class="delete-btn" onclick="removeExpense(${index})">&times;</span>
+                </div>`;
+            list.appendChild(li);
+        });
+
+        // 2. Actualizar Gráfico
+        updateChart();
+    }
+
+    function updateChart() {
+        const chartCard = document.getElementById('chart-card');
+        
+        if (expenses.length === 0) {
+            chartCard.style.display = 'none';
+            return;
+        }
+        chartCard.style.display = 'block';
+
+        // Agrupar datos para el gráfico (si alguien pagó 2 veces, se suma)
+        let peopleTotal = {};
+        expenses.forEach(e => {
+            if (!peopleTotal[e.name]) peopleTotal[e.name] = 0;
+            peopleTotal[e.name] += e.amount;
+        });
+
+        const labels = Object.keys(peopleTotal);
+        const data = Object.values(peopleTotal);
+
+        const ctx = document.getElementById('expenseChart').getContext('2d');
+
+        // Si ya existe gráfico, lo destruimos para crear uno nuevo (animación nueva)
+        if (myChart) myChart.destroy();
+
+        myChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: chartColors,
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    }
+
+    function calculateOptimized() {
+        if (expenses.length < 2) {
+            alert("Necesitas al menos 2 personas para calcular.");
+            return;
+        }
+
+        // 1. Calcular Totales
+        let people = {};
+        let totalSpent = 0;
+
+        expenses.forEach(e => {
+            if (!people[e.name]) people[e.name] = 0;
+            people[e.name] += e.amount;
+            totalSpent += e.amount;
+        });
+
+        let names = Object.keys(people);
+        let average = totalSpent / names.length;
+
+        // 2. Separar Deudores y Acreedores
+        let debtors = [];
+        let creditors = [];
+
+        names.forEach(name => {
+            let diff = people[name] - average;
+            if (diff < -0.01) debtors.push({ name, amount: diff }); 
+            else if (diff > 0.01) creditors.push({ name, amount: diff });
+        });
+
+        // Ordenar para algoritmo Greedy
+        debtors.sort((a, b) => a.amount - b.amount); 
+        creditors.sort((a, b) => b.amount - a.amount);
+
+        let html = "";
+        let i = 0, j = 0;
+
+        while (i < debtors.length && j < creditors.length) {
+            let debtor = debtors[i];
+            let creditor = creditors[j];
+            let amount = Math.min(Math.abs(debtor.amount), creditor.amount);
+
+            html += `
+            <div class="bizum-card">
+                <div class="bizum-text">
+                    <span class="badge b-pay">${debtor.name}</span> paga a 
+                    <span class="badge b-receive">${creditor.name}</span>
+                </div>
+                <div class="bizum-amount">${amount.toFixed(2)}€</div>
+            </div>`;
+
+            debtor.amount += amount;
+            creditor.amount -= amount;
+
+            if (Math.abs(debtor.amount) < 0.01) i++;
+            if (creditor.amount < 0.01) j++;
+        }
+
+        // Mostrar
+        document.getElementById('summary-text').innerHTML = `Gasto Total: <strong>${totalSpent.toFixed(2)}€</strong> <br> (A cada uno le toca: ${average.toFixed(2)}€)`;
+        document.getElementById('bizum-list').innerHTML = html;
+        document.getElementById('results-area').style.display = 'block';
+        
+        // Scroll suave hacia resultados
+        document.getElementById('results-area').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function shareLink() {
+        if (navigator.share) {
+            navigator.share({ title: 'Cuentas Finde', url: window.location.href });
+        } else {
+            navigator.clipboard.writeText(window.location.href);
+            alert("Enlace copiado al portapapeles");
+        }
+    }
 </script>
+
 </body>
 </html>
